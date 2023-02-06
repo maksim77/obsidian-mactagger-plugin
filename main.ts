@@ -1,10 +1,24 @@
-import { Editor, MarkdownView, Plugin, TFile } from 'obsidian';
+import { Editor, MarkdownView, Plugin, TFile, PluginSettingTab, App, Setting } from 'obsidian';
 import { exec } from "child_process";
 
 const plist = require('plist'); 
 
+interface MacTagSettings {
+	writeOnSave: boolean;
+}
+
+const DEFAULT_SETTINGS: MacTagSettings = {
+	writeOnSave: true
+}
+
 export default class MacTagPlugin extends Plugin {
+	settings: MacTagSettings;
+
 	async onload() {
+		await this.loadSettings();
+
+		this.addSettingTab(new MacTagSettingTab(this.app, this));
+
 		this.addCommand({
 			id: 'write-macos-tag',
 			name: "Write Mac OS tags",
@@ -29,6 +43,15 @@ export default class MacTagPlugin extends Plugin {
 
 	onunload() {
 	}
+
+	async loadSettings() {
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+	}
+
+	async saveSettings() {
+		await this.saveData(this.settings);
+	}
+
 
 	writeTags(file: TFile) {
 		//@ts-ignore
@@ -65,4 +88,29 @@ export default class MacTagPlugin extends Plugin {
 		}
 		return tags.map((s: string)=> s.replace("#", ""))
 	}
+}
+
+class MacTagSettingTab extends PluginSettingTab {
+	plugin: MacTagPlugin;
+
+	constructor(app: App, plugin: MacTagPlugin) {
+		super(app, plugin);
+		this.plugin = plugin;
+	}
+
+	display(): void {
+		const {containerEl} = this;
+
+		containerEl.empty();
+		containerEl.createEl('h2', {text: 'Settings for Mac Tagger Plugin.'});
+
+		new Setting(containerEl)
+			.setName('Write on Save')
+			.setDesc('Check the box if you want to save tags when saving the file.')
+			.addToggle(tc => tc.onChange(async (value) => {
+				this.plugin.settings.writeOnSave = value;
+				await this.plugin.saveSettings();
+			}))
+	}
+
 }
